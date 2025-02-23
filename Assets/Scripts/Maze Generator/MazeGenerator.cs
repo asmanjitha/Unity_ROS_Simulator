@@ -1,12 +1,21 @@
 using UnityEngine;
 using System.Collections.Generic;
+using UnityEngine.Experimental.GlobalIllumination;
 
 public class MazeGenerator : MonoBehaviour
 {
-    public Vector3 cubeSize = new Vector3(2f, 0.1f, 2f); // Cube size (width, height, depth)
-    public int mazeWidth = 11;  // Maze max width (Must be an ODD number)
-    public int mazeHeight = 11; // Maze max height (Must be an ODD number)
+    public Vector3 cubeSize = new Vector3(7f, 0.1f, 7f); // Cube size (width, height, depth)
+    public int mazeWidth = 20;  // Maze max width (Must be an ODD number)
+    public int mazeHeight = 20; // Maze max height (Must be an ODD number)
     public GameObject wallPrefab; // Assign a cube prefab in Unity
+    public GameObject floorPrefab;
+    public GameObject pointLight;
+    public int pointCount = 1; // Number of random points
+    public List<Vector3> randomPoints = new List<Vector3>(); // Stores random walkable points
+    public GameObject rescue;
+
+    public int numObjects = 10;
+    public int lightingLevel = 1;
 
     private int[,] maze; // Maze grid: 0 = path, 1 = wall
     private Vector2Int entrance;
@@ -19,7 +28,7 @@ public class MazeGenerator : MonoBehaviour
 
     void Start()
     {
-        GenerateMaze();
+        // GenerateMaze();
     }
 
     public void GenerateMaze()
@@ -28,7 +37,8 @@ public class MazeGenerator : MonoBehaviour
         if (mazeHeight % 2 == 0) mazeHeight -= 1;
 
         maze = new int[mazeWidth, mazeHeight];
-        
+        randomPoints.Clear(); // Clear previous points
+
         // Initialize maze with walls
         for (int x = 0; x < mazeWidth; x++)
         {
@@ -49,6 +59,9 @@ public class MazeGenerator : MonoBehaviour
 
         // Set Entrance and Exit
         SetEntranceAndExit();
+
+        // Generate Random Walkable Points
+        GenerateRandomWalkablePoints();
 
         // Instantiate Maze
         BuildMaze();
@@ -83,6 +96,47 @@ public class MazeGenerator : MonoBehaviour
 
         maze[entrance.x, entrance.y] = 0;
         maze[exit.x, exit.y] = 0;
+    }
+
+    private void GenerateRandomWalkablePoints()
+    {
+        List<Vector2Int> walkableSpaces = new List<Vector2Int>();
+
+        // Collect all walkable cells
+        for (int x = 1; x < mazeWidth - 1; x++)
+        {
+            for (int y = 1; y < mazeHeight - 1; y++)
+            {
+                if (maze[x, y] == 0 && new Vector2Int(x, y) != entrance && new Vector2Int(x, y) != exit)
+                {
+                    walkableSpaces.Add(new Vector2Int(x, y));
+                    Instantiate(floorPrefab, new Vector3(x*cubeSize.x,-1,y*cubeSize.z), Quaternion.identity,  gameObject.transform);
+                    Instantiate(floorPrefab, new Vector3(x*cubeSize.x,2.9f,y*cubeSize.z), Quaternion.identity,  gameObject.transform);
+                    GameObject light = Instantiate(pointLight, new Vector3(x*cubeSize.x,1,y*cubeSize.z), Quaternion.identity, gameObject.transform);
+                    if(lightingLevel == 1){
+                        light.GetComponent<Light>().range = 1.0f;
+                    }else{
+                        light.GetComponent<Light>().range = 10.0f;
+                    }
+                    
+                }
+            }
+        }
+
+        Instantiate(floorPrefab, new Vector3(0,-1,7), Quaternion.identity,  gameObject.transform);
+        // Instantiate(floorPrefab, new Vector3(mazeWidth - 1,-1,  mazeHeight - 2), Quaternion.identity,  gameObject.transform);
+
+        // Select 'randomPointCount' unique random points
+        for (int i = 0; i < pointCount && walkableSpaces.Count > 0; i++)
+        {
+            int index = Random.Range(0, walkableSpaces.Count);
+            Vector2Int chosenPoint = walkableSpaces[index];
+            walkableSpaces.RemoveAt(index);
+
+            Vector3 worldPosition = new Vector3(chosenPoint.x * cubeSize.x, -0.85f, chosenPoint.y * cubeSize.z);
+            randomPoints.Add(worldPosition);
+            Instantiate(rescue, worldPosition, Quaternion.identity);
+        }
     }
 
     private void BuildMaze()
